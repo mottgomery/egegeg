@@ -579,5 +579,3 @@ app.jinja_env.filters['to_base64'] = to_base64
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
-if __name__ == '__main__':
-	app.run(debug=True, port=5000)
