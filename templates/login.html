@@ -3,6 +3,7 @@
 {% block title %}Вход{% endblock %}
 
 {% block content %}
+<div class="content">
 <form method="POST" action="/login">
     <!-- Поле для ввода логина -->
     <div>
@@ -20,7 +21,7 @@
     </div>
     <button type="submit">Войти</button>
 </form>
-
+</div>>
 <script>
     document.getElementById('showPassword').addEventListener('change', function() {
         const passwordInput = document.getElementById('password');

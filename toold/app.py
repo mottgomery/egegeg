@@ -267,13 +267,24 @@ def about():
     return render_template('about.html')
 
 
-# Функция для отображения изображений в формате Base64
-def to_base64(binary_data):
-    return b64encode(binary_data).decode('utf-8')
+def safe_b64encode(data):
+    if data:
+        if isinstance(data, str):  # Если это строка, преобразуем в байты
+            data = data.encode('utf-8')
+        elif not isinstance(data, bytes):
+            raise ValueError(f"Unsupported data type: {type(data)}")
+    return b64encode(data).decode('utf-8') if data else None
+
+
+
+with app.app_context():
+    post = Post.query.get(1)
+    print(type(post.zad))  # Должно быть <class 'bytes'>, если данные корректны
+    print(post.zad)
 
 
 # Добавление функции в шаблон
-app.jinja_env.filters['to_base64'] = to_base64
+app.jinja_env.filters['to_base64'] = safe_b64encode
 
 
 # Создание папки для загрузки файлов, если она не существует

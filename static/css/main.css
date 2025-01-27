@@ -22,15 +22,15 @@ footer {
     padding: 10px;
     background-color: #fff;
     box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
-    height: 45px;
+    height: 240px;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
 }
 
 .heder__img {
-    height: 48px;
-    width: 48px;
+    height: 65%;
+    width: 65%;
     border-radius: 10px;
 }
 
@@ -57,6 +57,7 @@ footer {
 .row {
     padding: 50px 0;
 }
+
 
 .seperator {
     margin-bottom: 30px;
@@ -329,6 +330,17 @@ body.dark-theme a {
     color: #f5f5f5;
 }
 
+body,h1,h2,h3,h4,h5,h6 {font-family: "Raleway", sans-serif}
+
+body, html {
+  height: 100%;
+  line-height: 1.8;
+}
+
+
+.w3-bar .w3-button {
+    padding: 16px;
+}
 
 /* Дополнительные секции */
 body.dark-theme .features,
@@ -459,7 +471,9 @@ body.dark-theme .tag
     border-radius: 4px;
     font-size: 0.9em;
 }
+body.dark-theme .w3-bar-item w3-button{
 
+}
 .card {
     position: relative;
     height: 100%;
@@ -554,8 +568,397 @@ body.dark-theme .card{
 
 }
 
+/* Добавление анимации перехода для темы */
+body.dark-transition {
+    transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+body.light-transition {
+    transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+/* Анимация затемнения при переходе */
+body.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+body.fade-out {
+    animation: fadeOut 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Темная тема для хедера */
+body.dark-theme #myNavbar {
+    background-color: #333 !important;
+    color: #fff;
+}
+
+body.dark-theme .w3-bar-item {
+    color: #fff !important;
+}
+
+body.dark-theme .w3-bar-item:hover {
+    background-color: #555 !important;
+}
+
+
+/* Контейнер для кнопок */
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px; /* Расстояние между кнопками */
+    margin: 20px;
+}
+
+/* Кнопка "Создать тест" */
+.btn-create {
+    background-color: #007bff;
+    color: white;
+    font-size: 18px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+}
+
+.btn-create:hover {
+    background-color: #0056b3;
+}
+
+/* Стили для серых кнопок */
+.btn-secondary-group {
+    background-color: #e0e0e0;
+    color: #333;
+    font-size: 16px;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-secondary-group:hover {
+    background-color: #bdbdbd;
+}
 
 
 
- .pagination justify-content-center
+
+/* Стили для карточки с информацией о тесте */
+.test-card-container {
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.test-card-container h5 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.test-card-container p {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 15px;
+}
+
+.test-card-container .btn {
+    font-size: 0.875rem;
+    padding: 8px 12px;
+}
+
+/* Стили для страницы деталей теста */
+.test-detail-page {
+    background-color: #ffffff;
+    border: 1px solid #dedede;
+    border-radius: 10px;
+    padding: 30px;
+    margin-top: 20px;
+    box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.test-detail-page h1 {
+    font-size: 2rem;
+    color: #222;
+    margin-bottom: 20px;
+}
+
+.test-detail-page p {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 15px;
+}
+
+.test-detail-page ul {
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.test-detail-page ul li {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.test-detail-page .btn {
+    font-size: 1rem;
+    padding: 10px 20px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.test-detail-page .btn-danger {
+    background-color: #d9534f;
+    color: #fff;
+    border: none;
+}
+
+.test-detail-page .btn-danger:hover {
+    background-color: #c9302c;
+}
+
+.test-detail-page .btn-secondary {
+    background-color: #5bc0de;
+    color: #fff;
+    border: none;
+}
+
+.test-detail-page .btn-secondary:hover {
+    background-color: #31b0d5;
+}
+
+
+/* Общие стили для кнопок */
+button, .btn {
+    font-family: 'Arial', sans-serif;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Первичная кнопка (например, создать тест) */
+.btn-primary, .btn-primary:hover {
+    background-color: #3498db;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Вторичная кнопка (например, фильтры или отмена) */
+.btn-secondary, .btn-secondary:hover {
+    background-color: #95a5a6;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Кнопки удаления (опасные действия) */
+.btn-danger, .btn-danger:hover {
+    background-color: #e74c3c;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-danger:hover {
+    background-color: #c0392b;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Интерактивные эффекты на фокус */
+button:focus, .btn:focus {
+    outline: none;
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.5);
+}
+
+/* Дополнительный стиль для отключённых кнопок */
+button:disabled, .btn:disabled {
+    background-color: #bdc3c7;
+    color: #ecf0f1;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Плавающий эффект при наведении */
+button:hover, .btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Кнопки со 100% шириной (например, подробнее) */
+.btn-outline-primary {
+    color: #3498db;
+    border: 1px solid #3498db;
+    background-color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background-color: #3498db;
+    color: white;
+    border-color: #2980b9;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+
+/* Контейнер для кнопок */
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px; /* Расстояние между кнопками */
+    margin: 20px;
+}
+
+/* Кнопка "Создать тест" */
+.btn-create {
+    background-color: #007bff;
+    color: white;
+    font-size: 18px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+}
+
+.btn-create:hover {
+    background-color: #0056b3;
+}
+
+/* Стили для серых кнопок */
+.btn-secondary-group {
+    background-color: #e0e0e0;
+    color: #333;
+    font-size: 16px;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-secondary-group:hover {
+    background-color: #bdbdbd;
+}
+
+.button-container a {
+    text-decoration: none;
+}
+
+
+
+
+/* Общие стили для кнопок */
+.btn-custom {
+    display: inline-block;
+    font-family: 'Arial', sans-serif;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    width: 100%; /* На мобильных устройствах кнопки будут растягиваться */
+    max-width: 300px; /* На больших экранах будет ограничение по ширине */
+    margin: 5px auto; /* Центрирование кнопок на мобильных устройствах */
+}
+
+/* Основная кнопка */
+.btn-primary-custom {
+    background-color: #3498db;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary-custom:hover {
+    background-color: #2980b9;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Кнопка удаления */
+.btn-danger-custom {
+    background-color: #e74c3c;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-danger-custom:hover {
+    background-color: #c0392b;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Вторичная кнопка */
+.btn-secondary-custom {
+    background-color: #95a5a6;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary-custom:hover {
+    background-color: #7f8c8d;
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Упрощённый стиль для маленьких кнопок (иконки) */
+.btn-icon {
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 2px;
+}
+
+.btn-icon-danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-icon-danger:hover {
+    background-color: #c0392b;
+}
+
+.btn-icon-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.btn-icon-secondary:hover {
+    background-color: #7f8c8d;
+}
+
+/* Адаптивные стили для мобильных устройств */
+@media (max-width: 576px) {
+    .btn-custom {
+        font-size: 12px;
+        padding: 8px 16px;
+        width: 100%; /* Растягиваем кнопки на всю ширину */
+    }
+}
 

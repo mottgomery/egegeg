@@ -1,14 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, abort, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import os
 from base64 import b64encode
+from flask_migrate import Migrate
+from docx import Document
+import docx.shared
+from io import BytesIO
+
 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zadachi.db'
-app.config['SQLALCHEMY_BINDS'] = {'users': 'sqlite:///users.db'}
 app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 
@@ -16,6 +20,8 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+migrate = Migrate(app, db)
+
 
 # Модель тега
 class Tag(db.Model):
@@ -43,11 +49,102 @@ class Post(db.Model):
 
 # Модель пользователя
 class User(UserMixin, db.Model):
-    __bind_key__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     role = db.Column(db.String(50), nullable=False)  # 'admin', 'teacher', 'student'
+
+# Добавим новую модель для тестов
+class Test(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(300), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user = db.relationship('User', backref=db.backref('tests', lazy=True))  # Связь с моделью User
+    tasks = db.relationship('Post', secondary='test_post', backref=db.backref('tests', lazy='dynamic'))
+
+# Ассоциативная таблица для задач и тестов
+test_post = db.Table('test_post',
+    db.Column('test_id', db.Integer, db.ForeignKey('test.id'), primary_key=True),
+    db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True)
+)
+
+
+
+
+@app.route('/search', methods=['GET'])
+def search():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return render_template('search.html', query=query, results=[])
+
+    # Поиск по задачам и тестам
+    task_results = Post.query.filter(Post.title.ilike(f"%{query}%")).all()
+    test_results = Test.query.filter(Test.name.ilike(f"%{query}%")).all()
+
+    # Передача результатов в шаблон
+    return render_template('search.html', query=query, task_results=task_results, test_results=test_results)
+
+
+
+
+
+
+
+@app.route('/create_test', methods=['POST'])
+@login_required
+def create_test():
+    data = request.get_json()
+    test_name = data.get('testName')
+    task_ids = data.get('taskIds')
+
+    if not test_name or not task_ids:
+        return jsonify({'error': 'Invalid input'}), 400
+
+    tasks = Post.query.filter(Post.id.in_(task_ids)).all()
+    if len(tasks) != len(task_ids):
+        return jsonify({'error': 'Some tasks not found'}), 404
+
+    new_test = Test(name=test_name, user_id=current_user.id, tasks=tasks)
+    db.session.add(new_test)
+    db.session.commit()
+
+    return jsonify({'success': True}), 201
+
+@app.route('/tests', methods=['GET'])
+@login_required
+def view_tests():
+    page = request.args.get('page', 1, type=int)
+    tests = Test.query.filter_by(user_id=current_user.id).paginate(page=page, per_page=10)
+    posts = Post.query.paginate(page=page, per_page=20)
+    return render_template('mytest.html', tests=tests, posts=posts)
+
+
+
+
+# Страница отображения конкретного теста
+@app.route('/test_details/<int:test_id>')
+def show_test_detail(test_id):
+    test = Test.query.get_or_404(test_id)
+    return render_template('test_detail.html', test=test)
+
+
+@app.route('/delete_test/<int:test_id>', methods=['POST'])
+@login_required
+def delete_test(test_id):
+    test = Test.query.get_or_404(test_id)
+    if test.user_id != current_user.id:
+        flash('Вы не можете удалить этот тест.', 'danger')
+        return redirect(url_for('view_tests'))
+
+    try:
+        db.session.delete(test)
+        db.session.commit()
+        flash('Тест успешно удалён.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при удалении теста: {e}', 'danger')
+
+    return redirect(url_for('view_tests'))
 
 
 
@@ -61,17 +158,24 @@ def load_user(user_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].strip()
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
 
+        # Отладочные сообщения
+        print(f"Username: {username}")
+        print(f"User found: {user.username if user else 'None'}")
+
         if user and bcrypt.check_password_hash(user.password, password):
+            print("Password match: True")
             login_user(user)
             return redirect(url_for('index'))
         else:
+            print("Password match: False")
             flash('Неправильные имя пользователя или пароль.')
 
     return render_template('login.html')
+
 
 
 @app.route('/logout', methods=['GET', 'POST'])
@@ -104,6 +208,55 @@ def register_teacher():
 
     tags = Tag.query.all()
     return render_template('register_teacher.html', tags=tags)
+
+
+
+
+
+
+
+@app.route('/generate_docx/<int:test_id>', methods=['GET'])
+@login_required
+def generate_docx(test_id):
+    test = Test.query.get_or_404(test_id)
+    if test.user_id != current_user.id:
+        abort(403)
+
+    doc = Document()
+    doc.add_heading(test.name, level=1)
+
+
+    for i, task in enumerate(test.tasks, start=1):
+        doc.add_heading(f"№ {i}", level=2)
+
+        try:
+            if task.zad:
+                image_stream = BytesIO(task.zad)
+                doc.add_paragraph("\n", style="Normal")  # Отступ для выравнивания изображения
+                run = doc.paragraphs[-1].add_run()
+                run.add_picture(image_stream, width=docx.shared.Inches(4))  # Уменьшение размера изображения
+                last_paragraph = doc.paragraphs[-1]
+                last_paragraph.alignment = 1  # Центровка изображения
+            else:
+                doc.add_paragraph("Нет изображения для этой задачи.")
+        except Exception as e:
+            doc.add_paragraph(f"Ошибка при добавлении изображения задачи {i}: {str(e)}")
+
+        if hasattr(task, 'description') and task.description:
+            doc.add_paragraph(task.description)
+
+    output = BytesIO()
+    doc.save(output)
+    output.seek(0)
+
+    return send_file(output, as_attachment=True, download_name=f"{test.name}.docx", mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+
+
+
+
+
+
 
 @app.route('/add_tag', methods=['POST'])
 @login_required
@@ -153,6 +306,35 @@ def delete_tags():
         flash(f'Ошибка при удалении тегов: {e}')
 
     return redirect(url_for('register_teacher'))
+
+
+@app.route('/delete_solution/<int:post_id>/<int:solution_number>', methods=['POST', 'GET'])
+@login_required
+def delete_solution(post_id, solution_number):
+    post = Post.query.get_or_404(post_id)
+
+    # Проверяем права доступа
+    if current_user.role not in ['admin', 'teacher']:
+        abort(403)
+
+    # Удаляем выбранное решение
+    if solution_number == 1:
+        post.resh1 = None
+    elif solution_number == 2:
+        post.resh2 = None
+    elif solution_number == 3:
+        post.resh3 = None
+    elif solution_number == 4:
+        post.resh3 = None
+    elif solution_number == 5:
+        post.resh3 = None
+    else:
+        abort(400, description="Неверный номер решения")
+
+    db.session.commit()
+    flash('Решение удалено', 'success')
+    return redirect(url_for('show_post_detail', id=post_id))
+
 
 @app.route('/post/<int:post_id>/edit_tags', methods=['GET', 'POST'])
 def update_post_tags(post_id):  # Уникальное имя функции
@@ -217,6 +399,43 @@ def create():
     all_tags = Tag.query.all()
     return render_template('create.html', all_tags=all_tags)
 
+@app.route('/update_solutions/<int:post_id>', methods=['POST'])
+@login_required
+def update_solutions(post_id):
+    post = Post.query.get_or_404(post_id)
+    if current_user.role not in ['admin', 'teacher']:
+        abort(403)
+
+    # Обновление решений
+    if 'resh1' in request.files:
+        resh1 = request.files['resh1']
+        if resh1.filename:
+            post.resh1 = resh1.read()
+
+    if 'resh2' in request.files:
+        resh2 = request.files['resh2']
+        if resh2.filename:
+            post.resh2 = resh2.read()
+
+    if 'resh3' in request.files:
+        resh3 = request.files['resh3']
+        if resh3.filename:
+            post.resh3 = resh3.read()
+
+    if 'resh4' in request.files:
+        resh4 = request.files['resh3']
+        if resh4.filename:
+            post.resh4 = resh4.read()
+
+    if 'resh5' in request.files:
+        resh5 = request.files['resh3']
+        if resh5.filename:
+            post.resh5 = resh5.read()
+
+
+    db.session.commit()
+    flash('Решения успешно обновлены!', 'success')
+    return redirect(url_for('show_post_detail', id=post_id))
 
 
 # Главная страница
@@ -291,7 +510,7 @@ def posts():
 
     # Пагинация
     page = request.args.get('page', 1, type=int)
-    posts = query.paginate(page=page, per_page=14)
+    posts = query.paginate(page=page, per_page=20)
 
     # Генерация заголовка
     if filter_title:
@@ -335,6 +554,9 @@ def show_post_detail(id):
 
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404_page.html'), 404
 
 
 # Страница "О проекте"
@@ -352,10 +574,10 @@ def to_base64(binary_data):
 app.jinja_env.filters['to_base64'] = to_base64
 
 
+
 # Создание папки для загрузки файлов, если она не существует
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 if __name__ == '__main__':
 	app.run(debug=True, port=5000)
-
