@@ -8,7 +8,6 @@ from docx import Document
 import docx.shared
 from io import BytesIO
 from pytz import timezone
-import datetime
 
 
 # Функция для конвертации времени
