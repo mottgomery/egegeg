@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ thread.title }}{% endblock %}
+
+{% block head %}
+<style>
+    .thread-container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        color: #333333;
+        font-family: Arial, sans-serif;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .post {
+        border: 1px solid #dddddd;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: #f9f9f9;
+        transition: background 0.3s ease;
+        display: flex;
+    }
+
+    .post:hover {
+        background: #f1f1f1;
+    }
+
+    .post-votes {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-right: 15px;
+    }
+
+    .post-votes button {
+        background: none;
+        border: none;
+        color: #333333;
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    .post-votes button:hover {
+        color: #007bff;
+    }
+
+    .post-content {
+        flex: 1;
+    }
+
+    .post-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        color: #666666;
+        margin-bottom: 10px;
+    }
+
+    .post-message {
+        font-size: 16px;
+        color: #333333;
+    }
+
+    .post img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+
+    .new-post-button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+        margin-top: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .new-post-button:hover {
+        background-color: #0056b3;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        width: 400px;
+        max-width: 90%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+
+    .modal input,
+    .modal textarea {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #dddddd;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .modal button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+        width: 100%;
+    }
+
+    .modal button:hover {
+        background-color: #0056b3;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+        font-size: 24px;
+        color: #333333;
+    }
+
+    .modal-close:hover {
+        color: #007bff;
+    }
+</style>
+<script>
+    function openModal(id, postId) {
+        const modal = document.getElementById(id);
+        modal.style.display = 'flex';
+        if (postId) {
+            const input = modal.querySelector('input[name="post_id"]');
+            input.value = postId;
+        }
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="thread-container">
+    <h1>{{ thread.title }}</h1>
+    <p class="text-muted">Создано: {{ thread.created_at | format_time_to_local }}</p>
+
+    <div id="posts">
+        {% for post in thread.posts %}
+        <div class="post">
+            <div class="post-votes">
+                <button>&#9650;</button>
+                <span>{{ post.votes }}</span>
+                <button>&#9660;</button>
+            </div>
+            <div class="post-content">
+                <div class="post-header">
+                    <span>{{ post.name }}</span>
+                    <span>{{ post.created_at | format_time_to_local }}</span>
+                </div>
+                <div class="post-message">
+                    <p>{{ post.message }}</p>
+                    {% if post.file %}
+                    <img src="data:image/png;base64,{{ post.file | to_base64 }}" alt="Изображение">
+                    {% endif %}
+                </div>
+                <div class="post-actions">
+
+                    <button class="reply-button" onclick="openModal('replyModal', {{ post.id }})">Ответить</button>
+                    {% if current_user.is_admin %}
+                    <button class="delete-button" onclick="openModal('deleteModal', {{ post.id }})">Удалить</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% for reply in post.replies %}
+        <div class="post reply">
+            <div class="post-votes">
+                <button>&#9650;</button>
+                <span>{{ reply.votes }}</span>
+                <button>&#9660;</button>
+            </div>
+            <div class="post-content">
+                <div class="post-header">
+                    <span>{{ reply.name }}</span>
+                    <span>{{ reply.created_at | format_time_to_local }}</span>
+                </div>
+                <div class="post-message">
+                    <p>{{ reply.message }}</p>
+                </div>
+                <div class="post-actions">
+                    {% if current_user.is_admin %}
+                    <form action="{{ url_for('remove_comment', comment_id=post.id) }}" method="post" style="display:inline;">
+                        <button type="submit" class="btn btn-danger btn-sm">Удалить комментарий</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+
+    <button class="new-post-button" onclick="openModal('newPostModal')">Добавить комментарий</button>
+</div>
+
+<div id="newPostModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('newPostModal')">&times;</span>
+        <form action="{{ url_for('view_thread', thread_id=thread.id) }}" method="POST" enctype="multipart/form-data">
+            <div class="modal-header">Добавить комментарий</div>
+            <input type="text" name="name" placeholder="Ваше имя (необязательно)">
+            <textarea name="message" placeholder="Ваше сообщение" required></textarea>
+            <input type="file" name="file" accept="image/*">
+            <button type="submit">Отправить</button>
+        </form>
+    </div>
+</div>
+
+
+    <!-- Модальное окно для удаления -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('deleteModal')">&times;</span>
+        <form action="{{ url_for('delete_post') }}" method="POST">
+            <input type="hidden" name="post_id" id="deletePostId">
+            <div class="modal-header">Подтвердите удаление</div>
+            <p>Вы уверены, что хотите удалить этот комментарий?</p>
+            <button type="submit" style="background-color: #ff4d4d;">Удалить</button>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно для ответа -->
+<div id="replyModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('replyModal')">&times;</span>
+        <form action="{{ url_for('reply_to_post') }}" method="POST">
+            <input type="hidden" name="post_id" id="replyPostId">
+            <div class="modal-header">Ответить на комментарий</div>
+            <textarea name="message" placeholder="Ваш ответ" required></textarea>
+            <button type="submit">Ответить</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -102,23 +102,13 @@
 {% endblock %}
 
 {% block content %}
+
+
 <h1>Результаты поиска</h1>
 
 <div class="search-bar">
-    <input
-        form="form1"
-        type="text"
-        name="q"
-        placeholder="Введите запрос..."
-        class="search-input"
-    />
-    <button
-        form="form1"
-        type="submit"
-        class="search-button"
-    >
-        Найти
-    </button>
+    <input form="form1" type="text" name="q" placeholder="Введите запрос..." class="search-input"/>
+    <form class="search-button" id="form1" action="/search" method="GET" ><button form="form1" type="submit" class="search-button">Найти</button></form>
 </div>
 
 {% if not task_results and not test_results %}
@@ -152,4 +142,5 @@
         {% endif %}
     </div>
 {% endif %}
+
 {% endblock %}

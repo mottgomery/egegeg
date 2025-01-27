@@ -42,24 +42,24 @@
 
         <!-- Пагинация для тестов -->
         <nav>
-            <ul class="pagination justify-content-center">
-                {% if tests.has_prev %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('view_tests', page=tests.prev_num) }}">Назад</a>
-                </li>
-                {% endif %}
-                {% for num in tests.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
-                <li class="page-item {% if num == tests.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('view_tests', page=num) }}">{{ num }}</a>
-                </li>
-                {% endfor %}
-                {% if tests.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('view_tests', page=tests.next_num) }}">Вперёд</a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
+          <ul class="pagination justify-content-center">
+                  {% if tests.has_prev %}
+                  <li class="page-item">
+                      <a class="page-link" href="{{ url_for('view_tests', page=tests.prev_num) }}">Назад</a>
+                  </li>
+                  {% endif %}
+                  {% for num in tests.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                  <li class="page-item {% if num == tests.page %}active{% endif %}">
+                      <a class="page-link" href="{{ url_for('view_tests', page=num) }}">{{ num }}</a>
+                  </li>
+                  {% endfor %}
+                  {% if tests.has_next %}
+                  <li class="page-item">
+                      <a class="page-link" href="{{ url_for('view_tests', page=tests.next_num) }}">Вперёд</a>
+                  </li>
+                  {% endif %}
+              </ul>
+          </nav>
     </div>
 </div>
 
@@ -77,11 +77,11 @@
         <div class="container mt-4">
             <div class="row">
                 <div class="d-flex justify-content-between mb-3">
-                    <button id="enableSelection" class="btn btn-outline-secondary">Выбрать задачи</button>
-                    <button class="w3-button w3-black w3-padding-large" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <button id="enableSelection" class="btn-custom btn-primary-custom mt-3">Выбрать задачи</button>
+                    <button class="btn-custom btn-primary-custom mt-3" data-bs-toggle="modal" data-bs-target="#filterModal">
                         <i class="fa fa-filter"></i> Фильтры
                     </button>
-                    <button id="createTest" class="btn btn-primary" disabled>Сформировать тест</button>
+                    <button id="createTest" class="btn-custom btn-primary-custom mt-3" disabled>Сформировать тест</button>
                 </div>
 
                 <!-- Поле для ввода названия теста -->

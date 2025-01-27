@@ -4,10 +4,23 @@ from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import os
 from base64 import b64encode
-from flask_migrate import Migrate
 from docx import Document
 import docx.shared
 from io import BytesIO
+from pytz import timezone
+import datetime
+
+
+# Функция для конвертации времени
+def format_time_to_local(dt, tz_name="Europe/Moscow"):
+    local_tz = timezone(tz_name)
+    local_time = dt.astimezone(local_tz)
+    return local_time.strftime('%d.%m.%Y %H:%M')
+
+
+
+
+
 
 
 
@@ -15,12 +28,12 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zadachi.db'
 app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.jinja_env.filters['format_time_to_local'] = format_time_to_local
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-migrate = Migrate(app, db)
 
 
 # Модель тега
@@ -69,7 +82,68 @@ test_post = db.Table('test_post',
 )
 
 
+class Thread(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(300), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    posts = db.relationship('ThreadPost', backref='thread', cascade="all, delete-orphan")
 
+class ThreadPost(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    thread_id = db.Column(db.Integer, db.ForeignKey('thread.id'), nullable=False)
+    name = db.Column(db.String(100), default="Аноним")
+    message = db.Column(db.Text, nullable=False)
+    file = db.Column(db.LargeBinary, nullable=True)  # Для прикрепленных файлов
+    file_name = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+@app.route('/forum', methods=['GET', 'POST'])
+def forum():
+    threads = Thread.query.order_by(Thread.created_at.desc()).all()
+    return render_template('forum.html', threads=threads)
+
+@app.route('/forum/new_thread', methods=['POST'])
+def new_thread():
+    title = request.form.get('title').strip()
+    if not title:
+        flash('Название треда не может быть пустым.', 'danger')
+        return redirect(url_for('forum'))
+    thread = Thread(title=title)
+    db.session.add(thread)
+    db.session.commit()
+    flash('Тред успешно создан.', 'success')
+    return redirect(url_for('forum'))
+
+@app.route('/forum/<int:thread_id>', methods=['GET', 'POST'])
+def view_thread(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
+    if request.method == 'POST':
+        name = request.form.get('name') or "Аноним"
+        message = request.form.get('message').strip()
+        file = request.files.get('file')
+        if not message:
+            flash('Сообщение не может быть пустым.', 'danger')
+            return redirect(url_for('view_thread', thread_id=thread_id))
+        post = ThreadPost(thread_id=thread.id, name=name, message=message)
+        if file:
+            post.file = file.read()
+            post.file_name = file.filename
+        db.session.add(post)
+        db.session.commit()
+        flash('Сообщение добавлено.', 'success')
+    return render_template('thread.html', thread=thread)
+
+@app.route('/forum/delete_thread/<int:thread_id>', methods=['POST'])
+@login_required
+def delete_thread(thread_id):
+    if current_user.role != 'admin':
+        flash('Только администратор может удалять треды.', 'danger')
+        return redirect(url_for('forum'))
+    thread = Thread.query.get_or_404(thread_id)
+    db.session.delete(thread)
+    db.session.commit()
+    flash('Тред успешно удалён.', 'success')
+    return redirect(url_for('forum'))
 
 @app.route('/search', methods=['GET'])
 def search():
@@ -86,8 +160,61 @@ def search():
 
 
 
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    message = request.json.get('message')
+    if not message:
+        return jsonify({"error": "Empty message"}), 400
+
+    # Пример обработки сообщения
+    if "как добавить задачу" in message.lower():
+        response = "Чтобы добавить задачу, перейдите в раздел 'Добавить задачу' на главной странице."
+    else:
+        response = "Извините, я пока не понимаю этот запрос."
+
+    return jsonify({"response": response})
 
 
+@app.route('/forum/remove_comment/<int:comment_id>', methods=['POST'])
+@login_required
+def remove_comment(comment_id):
+    comment = ThreadPost.query.get_or_404(comment_id)
+
+    # Проверяем права доступа (только админ может удалять комментарии)
+    if current_user.role != 'admin':
+        flash('Только администратор может удалять комментарии.', 'danger')
+        return redirect(url_for('view_thread', thread_id=comment.thread_id))
+
+    try:
+        db.session.delete(comment)
+        db.session.commit()
+        flash('Комментарий успешно удален.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при удалении комментария: {e}', 'danger')
+
+    return redirect(url_for('view_thread', thread_id=comment.thread_id))
+
+
+@app.route('/forum/remove_thread/<int:thread_id>', methods=['POST'])
+@login_required
+def remove_thread(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
+
+    # Проверяем права доступа (только админ может удалять треды)
+    if current_user.role != 'admin':
+        flash('Только администратор может удалять треды.', 'danger')
+        return redirect(url_for('forum'))
+
+    try:
+        db.session.delete(thread)
+        db.session.commit()
+        flash('Тред успешно удален.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при удалении треда: {e}', 'danger')
+
+    return redirect(url_for('forum'))
 
 
 @app.route('/create_test', methods=['POST'])
@@ -115,7 +242,7 @@ def create_test():
 def view_tests():
     page = request.args.get('page', 1, type=int)
     tests = Test.query.filter_by(user_id=current_user.id).paginate(page=page, per_page=10)
-    posts = Post.query.paginate(page=page, per_page=20)
+    posts = Post.query.paginate(page=page, per_page=3000)
     return render_template('mytest.html', tests=tests, posts=posts)
 
 

@@ -15,7 +15,6 @@
 {% block head %}{% endblock %}
 </head>
 <body class="fade-in">
-<form  id="form1" action="/search" method="GET" style="height: 10px">b</form>
 <div class="w3-top">
   <div class="w3-bar w3-white w3-card" id="myNavbar">
     <a href="/" class="d-inline-flex link-body-emphasis text-decoration-none">
@@ -30,6 +29,7 @@
       {% if current_user.role == 'admin' or current_user.role == 'teacher' %}
         <a href="{{ url_for('view_tests') }}" class="w3-bar-item w3-button nav-link"> Мои тесты</a>
       {% endif %}
+      <a href="{{ url_for('forum') }}" class="w3-bar-item w3-button nav-link">Форум</a>
       {% if current_user.role == 'admin' %}
         <a href="{{ url_for('register_teacher') }}" class="w3-bar-item w3-button nav-link"> Панель администратора</a>
       {% endif %}
@@ -51,6 +51,7 @@
 
 <nav class="w3-sidebar w3-bar-block w3-black w3-card w3-animate-left w3-hide-medium w3-hide-large" style="display:none" id="mySidebar">
   <a href="javascript:void(0)" onclick="w3_close()" class="w3-bar-item w3-button w3-large w3-padding-16">Закрыть ×</a>
+  <a href="{{ url_for('search') }}" class="w3-bar-item w3-button nav-link"><i class="fa fa-search"></i></a>
   <a href="/" onclick="w3_close()" class="w3-bar-item w3-button">Главная</a>
   <a href="{{ url_for('posts') }}" onclick="w3_close()" class="w3-bar-item w3-button">Все задачи</a>
   <a href="{{ url_for('create') }}" onclick="w3_close()" class="w3-bar-item w3-button">Добавить задачу</a>
@@ -98,7 +99,13 @@
 </footer>
 
 
+
+
 <script>
+
+
+
+
 // Modal Image Gallery
 function onClick(element) {
   document.getElementById("img01").src = element.src;
