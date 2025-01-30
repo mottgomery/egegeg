@@ -3,174 +3,8 @@
 {% block title %}Форум{% endblock %}
 
 {% block head %}
-<style>
-    .forum-container {
-        width: 100%;
-        max-width: 1200px;
-        margin: 0 auto;
-        background: #ffffff;
-        padding: 20px;
-        border-radius: 0;
-        color: #333333;
-        font-family: Arial, sans-serif;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
 
-    .thread-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
 
-    .thread-item {
-        border: 1px solid #dddddd;
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 15px;
-        background: #f9f9f9;
-        transition: background 0.3s ease;
-        display: flex;
-        align-items: center;
-    }
-
-    .thread-item:hover {
-        background: #f1f1f1;
-    }
-
-    .thread-votes {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-right: 15px;
-    }
-
-    .thread-votes button {
-        background: none;
-        border: none;
-        color: #333333;
-        cursor: pointer;
-        font-size: 20px;
-        line-height: 1;
-    }
-
-    .thread-votes button:hover {
-        color: #007bff;
-    }
-
-    .thread-item a {
-        text-decoration: none;
-        color: #007bff;
-        font-weight: bold;
-        font-size: 18px;
-        margin-bottom: 5px;
-    }
-
-    .thread-item a:hover {
-        text-decoration: underline;
-    }
-
-    .thread-item .timestamp {
-        font-size: 12px;
-        color: #666666;
-        margin-top: 5px;
-    }
-
-    .new-thread-button {
-        display: block;
-        margin: 20px auto;
-        text-align: center;
-        background-color: #007bff;
-        color: white;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: bold;
-        transition: background-color 0.3s ease;
-    }
-
-    .new-thread-button:hover {
-        background-color: #0056b3;
-    }
-
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 30px;
-        border-radius: 16px;
-        width: 90%;
-        max-width: 500px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-        position: relative;
-    }
-
-    .modal-header {
-        font-size: 20px;
-        font-weight: bold;
-        margin-bottom: 20px;
-        color: #333;
-    }
-
-    .modal input,
-    .modal textarea {
-        width: 100%;
-        padding: 15px;
-        margin-bottom: 15px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        font-size: 14px;
-    }
-
-    .modal button {
-        background-color: #007bff;
-        color: white;
-        padding: 12px 24px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 16px;
-        transition: background-color 0.3s;
-    }
-
-    .modal button:hover {
-        background-color: #0056b3;
-    }
-
-    .modal-close {
-        position: absolute;
-        top: 10px;
-        right: 15px;
-        cursor: pointer;
-        font-size: 24px;
-        color: #aaa;
-    }
-
-    .modal-close:hover {
-        color: #333;
-    }
-</style>
-<script>
-    function openModal(id) {
-        document.getElementById(id).style.display = 'flex';
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).style.display = 'none';
-    }
-</script>
 {% endblock %}
 
 {% block content %}
@@ -182,19 +16,18 @@
         {% for thread in threads %}
         <li class="thread-item">
             <div class="thread-votes">
-                <button>&#9650;</button>
-                <span>123</span>
-                <button>&#9660;</button>
+                <!-- Кнопки для голосования с учетом текущего состояния -->
+                <button onclick="voteThread({{ thread.id }}, 'up')" id="up-{{ thread.id }}" class="vote-button">&#9650;</button>
+                <span id="votes-{{ thread.id }}">{{ thread.votes }}</span>
+                <button onclick="voteThread({{ thread.id }}, 'down')" id="down-{{ thread.id }}" class="vote-button">&#9660;</button>
             </div>
             <div style="flex: 1;">
                 <a href="{{ url_for('view_thread', thread_id=thread.id) }}">{{ thread.title }}</a>
-                <div class="timestamp">Создано: {{ thread.created_at | format_time_to_local }}</div>
+                <div class="timestamp">Создано: {{ thread.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
             </div>
-            {% if current_user.role == 'admin' %}
-            <form action="{{ url_for('remove_thread', thread_id=thread.id) }}" method="post" style="margin-left: auto;">
-                <button type="submit" class="btn btn-danger btn-sm" style="border: none; background-color: #e63946; color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer;">
-                    Удалить
-                </button>
+            {% if current_user.is_authenticated and current_user.role == 'admin' %}
+            <form action="{{ url_for('delete_thread', thread_id=thread.id) }}" method="post" style="margin-left: auto;">
+                <button type="submit" class="btn btn-danger btn-sm" style="border: none; background-color: #e63946; color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer;">Удалить</button>
             </form>
             {% endif %}
         </li>
@@ -202,6 +35,9 @@
     </ul>
 
     <button class="new-thread-button" onclick="openModal('newThreadModal')">Создать новый тред</button>
+    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+        <button class="new-thread-button" onclick="openAdminThreadModal()">Создать админовский тред</button>
+    {% endif %}
 </div>
 
 <div id="newThreadModal" class="modal">
@@ -214,4 +50,89 @@
         </form>
     </div>
 </div>
+
+<!-- Модальное окно -->
+<div id="adminThreadModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeAdminThreadModal()">&times;</span>
+        <form action="{{ url_for('new_admin_thread') }}" method="post">
+            <div class="modal-header">Создать новый админовский тред</div>
+            <input type="text" id="title" name="title" placeholder="Название треда" required>
+            <button type="submit">Создать</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    function openAdminThreadModal() {
+        document.getElementById('adminThreadModal').style.display = 'flex';
+    }
+
+    function closeAdminThreadModal() {
+        document.getElementById('adminThreadModal').style.display = 'none';
+    }
+
+
+    function voteThread(threadId, action) {
+        fetch(`/vote_thread/${threadId}/${action}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);  // Покажем сообщение об ошибке
+            } else {
+                // Обновляем количество голосов
+                document.getElementById(`votes-${threadId}`).textContent = data.votes;
+
+                // Визуальные изменения для кнопок голосования (например, стилизуем активные кнопки)
+                updateVoteButtons(threadId, action);
+
+                // Деактивируем кнопки после голосования, чтобы пользователь не мог проголосовать повторно
+                disableVoteButtons(threadId);
+            }
+        })
+        .catch(error => console.error('Ошибка:', error));
+    }
+
+    // Обновление визуального состояния кнопок (активные / неактивные)
+    function updateVoteButtons(threadId, action) {
+        const upButton = document.getElementById(`up-${threadId}`);
+        const downButton = document.getElementById(`down-${threadId}`);
+
+        if (action === 'up') {
+            upButton.style.backgroundColor = '#4CAF50';  // Зелёный цвет для "вверх"
+            downButton.style.backgroundColor = '';  // Сбрасываем цвет для "вниз"
+        } else if (action === 'down') {
+            downButton.style.backgroundColor = '#f44336';  // Красный цвет для "вниз"
+            upButton.style.backgroundColor = '';  // Сбрасываем цвет для "вверх"
+        } else {
+            // Для отмены голосования (если нужно)
+            upButton.style.backgroundColor = '';
+            downButton.style.backgroundColor = '';
+        }
+    }
+
+    // Деактивируем кнопки после голосования, чтобы предотвратить повторное голосование
+    function disableVoteButtons(threadId) {
+        const upButton = document.getElementById(`up-${threadId}`);
+        const downButton = document.getElementById(`down-${threadId}`);
+
+        upButton.disabled = true;
+        downButton.disabled = true;
+    }
+</script>
+
 {% endblock %}
+

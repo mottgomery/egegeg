@@ -29,6 +29,60 @@
     </ul>
 </section>
 
+<section class="statistics">
+    <h2>Немного статистики</h2>
+    <p>На данный момент на нашей платформе:</p>
+
+    <ul>
+        <li>
+    <strong>{{ tasks_count }}</strong>
+    {% if tasks_count == 1 %}
+        задача
+    {% elif tasks_count == 4 %}
+        задачи
+    {% else %}
+        добавленных задач
+    {% endif %}
+    </li>
+
+    <li>
+        <strong>{{ users_count }}</strong>
+        {% if users_count == 1 %}
+            пользователь
+        {% elif users_count == 4 %}
+            зарегистрированных пользователя
+        {% else %}
+            зарегистрированных пользователей
+        {% endif %}
+    </li>
+
+    <li>
+        <strong>{{ threads_count }}</strong>
+        {% if threads_count == 1 %}
+            тема для обсуждения
+        {% elif threads_count == 4 %}
+            созданные темы для обсуждения
+        {% else %}
+            созданных тем для обсуждения
+        {% endif %}
+    </li>
+
+    <li>
+        <strong>{{ tests_count }}</strong>
+        {% if tests_count == 1 %}
+            тест
+        {% elif tests_count == 4 %}
+            созданных теста
+        {% else %}
+            созданных тестов
+        {% endif %}
+    </li>
+
+    </ul>
+    <p>И мы продолжаем расти благодаря вашему участию!</p>
+</section>
+
+
 <section class="benefits">
     <h2>Преимущества нашего задачника</h2>
     <p>Мы стремимся сделать процесс обучения интересным и интерактивным. Вот несколько причин, почему наш сайт полезен для всех учащихся:</p>
@@ -41,18 +95,15 @@
 </section>
 
 
-<section class="statistics">
-    <h2>Немного статистики</h2>
-    <p>На данный момент на нашей платформе:</p>
+</div>
 
-    <ul>
-        <li><strong>00,000+</strong> добавленных задач</li>
-        <li><strong>0000+</strong> зарегистрированных пользователей</li>
 
-    </ul>
-    <p>И мы продолжаем расти благодаря вашему участию!</p>
-</section>
-</div>>
+{% if not accepted_cookies %}
+    <div id="cookie-banner" style="position: fixed; bottom: 0; width: 100%; background: #333; color: white; padding: 10px; text-align: center;">
+        Этот сайт использует cookies.
+        <button onclick="acceptCookies()">Принять</button>
+    </div>
+{% endif %}
 {% endblock %}
 
 

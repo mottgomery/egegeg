@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, abort, send_file
+from flask import Flask, render_template, redirect, url_for, flash, abort, send_file, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -81,68 +81,205 @@ test_post = db.Table('test_post',
 )
 
 
+
 class Thread(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(300), nullable=False)
+    votes = db.Column(db.Integer, default=0)
+    is_admin_thread = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    posts = db.relationship('ThreadPost', backref='thread', cascade="all, delete-orphan")
+    comments = db.relationship("ThreadPost", backref="thread", cascade="all, delete-orphan", lazy=True)
 
 class ThreadPost(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    thread_id = db.Column(db.Integer, db.ForeignKey('thread.id'), nullable=False)
+    thread_id = db.Column(db.Integer, db.ForeignKey("thread.id"), nullable=False)
     name = db.Column(db.String(100), default="Аноним")
     message = db.Column(db.Text, nullable=False)
     file = db.Column(db.LargeBinary, nullable=True)  # Для прикрепленных файлов
     file_name = db.Column(db.String(300), nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    replies = db.relationship("Reply", backref="parent", cascade="all, delete-orphan", lazy=True)
 
-@app.route('/forum', methods=['GET', 'POST'])
+
+class Reply(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("thread_post.id"), nullable=False)
+    file = db.Column(db.LargeBinary, nullable=True)  # Для прикрепленных файлов
+    file_name = db.Column(db.String(300), nullable=True)
+    name = db.Column(db.String(100), default="Аноним")
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+@app.route('/forum')
 def forum():
-    threads = Thread.query.order_by(Thread.created_at.desc()).all()
+    threads = Thread.query.order_by(Thread.votes.desc()).all()
     return render_template('forum.html', threads=threads)
 
-@app.route('/forum/new_thread', methods=['POST'])
-def new_thread():
-    title = request.form.get('title').strip()
-    if not title:
-        flash('Название треда не может быть пустым.', 'danger')
-        return redirect(url_for('forum'))
-    thread = Thread(title=title)
-    db.session.add(thread)
-    db.session.commit()
-    flash('Тред успешно создан.', 'success')
-    return redirect(url_for('forum'))
 
-@app.route('/forum/<int:thread_id>', methods=['GET', 'POST'])
+@app.route('/thread/<int:thread_id>', methods=['GET', 'POST'])
 def view_thread(thread_id):
     thread = Thread.query.get_or_404(thread_id)
-    if request.method == 'POST':
-        name = request.form.get('name') or "Аноним"
-        message = request.form.get('message').strip()
-        file = request.files.get('file')
-        if not message:
-            flash('Сообщение не может быть пустым.', 'danger')
-            return redirect(url_for('view_thread', thread_id=thread_id))
-        post = ThreadPost(thread_id=thread.id, name=name, message=message)
-        if file:
-            post.file = file.read()
-            post.file_name = file.filename
-        db.session.add(post)
-        db.session.commit()
-        flash('Сообщение добавлено.', 'success')
-    return render_template('thread.html', thread=thread)
+    page = request.args.get('page', 1, type=int)
+    comments_paginated = ThreadPost.query.filter_by(thread_id=thread.id).order_by(ThreadPost.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
 
-@app.route('/forum/delete_thread/<int:thread_id>', methods=['POST'])
+    if request.method == 'POST':
+        if thread.is_admin_thread and current_user.role != 'admin':
+            abort(403)
+
+        message = request.form['message']
+        name = request.form.get('name', 'Аноним')
+        parent_id = request.form.get('parent_id')
+
+        if parent_id:
+            reply = Reply(post_id=parent_id, message=message, name=name)
+            db.session.add(reply)
+        else:
+            post = ThreadPost(thread_id=thread_id, message=message, name=name)
+            db.session.add(post)
+
+        db.session.commit()
+        return redirect(url_for('view_thread', thread_id=thread_id, page=page))
+
+    return render_template('thread.html', thread=thread, comments_paginated=comments_paginated)
+
+
+@app.route('/new_admin_thread', methods=['POST'])
+@login_required
+def new_admin_thread():
+    if current_user.role != 'admin':
+        abort(403)
+
+    title = request.form['title']
+    thread = Thread(title=title, votes=0, is_admin_thread=True)
+    db.session.add(thread)
+    db.session.commit()
+    return redirect(url_for('forum'))
+
+
+@app.route('/forum/remove_comment/<int:comment_id>', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    comment = ThreadPost.query.get_or_404(comment_id)
+    if current_user.role != 'admin':
+        flash('Только администратор может удалять комментарии.', 'danger')
+        return redirect(url_for('view_thread', thread_id=comment.thread_id))
+    db.session.delete(comment)
+    db.session.commit()
+    flash('Комментарий и все ответы удалены.', 'success')
+    return redirect(url_for('view_thread', thread_id=comment.thread_id))
+
+@app.route('/new_thread', methods=['POST'])
+def new_thread():
+    title = request.form['title']
+    thread = Thread(title=title, votes=0)
+    db.session.add(thread)
+    db.session.commit()
+    return redirect(url_for('forum'))
+
+
+import json
+from flask import request, jsonify, make_response
+
+@app.route('/accept-cookies')
+def accept_cookies():
+    response = make_response("Cookies accepted!")
+    response.set_cookie('accepted_cookies', 'true', max_age=60*60*24*100)  # 100 дней
+    return response
+
+
+
+
+
+@app.route('/vote_thread/<int:thread_id>/<action>', methods=['POST'])
+def vote_thread(thread_id, action):
+    if not current_user.is_authenticated:
+        return jsonify({"error": "Вы должны быть авторизованы!"}), 403
+
+    # Получаем тред из базы данных
+    thread = Thread.query.get(thread_id)
+    if not thread:
+        return jsonify({"error": "Тред не найден."}), 404
+
+    # Получаем информацию о голосах пользователя из сессии
+    user_votes = session.get('user_votes', {})
+
+    # Проверяем, если пользователь уже проголосовал за этот тред
+    if thread_id in user_votes:
+        previous_vote = user_votes[thread_id]
+
+        # Если пользователь пытается проголосовать повторно тем же способом
+        if previous_vote == action:
+            return jsonify({"error": "Вы уже проголосовали этим способом."}), 400
+
+        # Если голос меняется (например, с "вверх" на "вниз"), обновляем количество голосов
+        if action == 'up':
+            thread.votes += 1
+        elif action == 'down':
+            thread.votes -= 1
+
+        # Отменяем предыдущий голос
+        if previous_vote == 'up':
+            thread.votes -= 1
+        elif previous_vote == 'down':
+            thread.votes += 1
+
+        # Обновляем голос в сессии
+        user_votes[thread_id] = action
+        db.session.commit()
+        session['user_votes'] = user_votes
+
+    else:
+        # Если пользователь голосует впервые за этот тред
+        if action == 'up':
+            thread.votes += 1
+        elif action == 'down':
+            thread.votes -= 1
+
+        # Сохраняем новый голос в сессии
+        user_votes[thread_id] = action
+        db.session.commit()
+        session['user_votes'] = user_votes
+
+    # Возвращаем обновленное количество голосов
+    return jsonify({"votes": thread.votes})
+
+
+@app.route('/vote_post/<int:post_id>/<action>', methods=['POST'])
+def vote_post(post_id, action):
+    post = Post.query.get_or_404(post_id)
+    if action == 'up':
+        post.votes += 1
+    elif action == 'down':
+        post.votes -= 1
+    db.session.commit()
+    return jsonify({'votes': post.votes})
+
+
+@app.route('/forum/remove_thread/<int:thread_id>', methods=['POST'])
 @login_required
 def delete_thread(thread_id):
+    thread = Thread.query.get_or_404(thread_id)
     if current_user.role != 'admin':
         flash('Только администратор может удалять треды.', 'danger')
         return redirect(url_for('forum'))
-    thread = Thread.query.get_or_404(thread_id)
     db.session.delete(thread)
     db.session.commit()
-    flash('Тред успешно удалён.', 'success')
-    return redirect(url_for('forum'))
+    flash("Тред и все связанные комментарии и ответы удалены.", "success")
+    return redirect(url_for("forum"))
+
+
+
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    uploads_dir = app.config['UPLOAD_FOLDER']
+    file_path = os.path.join(uploads_dir, filename)
+
+    if not os.path.exists(file_path):
+        abort(404)  # Файл не найден
+
+    return send_from_directory(directory=uploads_dir, path=filename, as_attachment=True)
+
 
 @app.route('/search', methods=['GET'])
 def search():
@@ -158,62 +295,6 @@ def search():
     return render_template('search.html', query=query, task_results=task_results, test_results=test_results)
 
 
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    message = request.json.get('message')
-    if not message:
-        return jsonify({"error": "Empty message"}), 400
-
-    # Пример обработки сообщения
-    if "как добавить задачу" in message.lower():
-        response = "Чтобы добавить задачу, перейдите в раздел 'Добавить задачу' на главной странице."
-    else:
-        response = "Извините, я пока не понимаю этот запрос."
-
-    return jsonify({"response": response})
-
-
-@app.route('/forum/remove_comment/<int:comment_id>', methods=['POST'])
-@login_required
-def remove_comment(comment_id):
-    comment = ThreadPost.query.get_or_404(comment_id)
-
-    # Проверяем права доступа (только админ может удалять комментарии)
-    if current_user.role != 'admin':
-        flash('Только администратор может удалять комментарии.', 'danger')
-        return redirect(url_for('view_thread', thread_id=comment.thread_id))
-
-    try:
-        db.session.delete(comment)
-        db.session.commit()
-        flash('Комментарий успешно удален.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Ошибка при удалении комментария: {e}', 'danger')
-
-    return redirect(url_for('view_thread', thread_id=comment.thread_id))
-
-
-@app.route('/forum/remove_thread/<int:thread_id>', methods=['POST'])
-@login_required
-def remove_thread(thread_id):
-    thread = Thread.query.get_or_404(thread_id)
-
-    # Проверяем права доступа (только админ может удалять треды)
-    if current_user.role != 'admin':
-        flash('Только администратор может удалять треды.', 'danger')
-        return redirect(url_for('forum'))
-
-    try:
-        db.session.delete(thread)
-        db.session.commit()
-        flash('Тред успешно удален.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Ошибка при удалении треда: {e}', 'danger')
-
-    return redirect(url_for('forum'))
 
 
 @app.route('/create_test', methods=['POST'])
@@ -244,8 +325,11 @@ def view_tests():
     posts = Post.query.paginate(page=page, per_page=3000)
     return render_template('mytest.html', tests=tests, posts=posts)
 
-
-
+@app.route('/all_tests', methods=['GET'])
+def all_tests():
+    page = request.args.get('page', 1, type=int)
+    tests = Test.query.paginate(page=page, per_page=10)  # Пагинация для всех тестов
+    return render_template('all_tests.html', tests=tests)
 
 # Страница отображения конкретного теста
 @app.route('/test_details/<int:test_id>')
@@ -376,11 +460,6 @@ def generate_docx(test_id):
     output.seek(0)
 
     return send_file(output, as_attachment=True, download_name=f"{test.name}.docx", mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-
-
-
-
-
 
 
 
@@ -568,8 +647,13 @@ def update_solutions(post_id):
 @app.route('/')
 @app.route('/index')
 def index():
-    return render_template('index.html')
-
+    # Получаем количество записей в каждой таблице
+    tasks_count = Post.query.count()
+    threads_count = Thread.query.count()
+    users_count = User.query.count()
+    tests_count = Test.query.count()
+    accepted_cookies = request.cookies.get('accepted_cookies')
+    return render_template('index.html', tasks_count=tasks_count, threads_count=threads_count, users_count=users_count, tests_count=tests_count, accepted_cookies=accepted_cookies)
 
 @app.route('/delete/<int:id>', methods=['POST'])
 def delete_post(id):
@@ -601,6 +685,11 @@ def edit_tags(id):
     flash('Теги успешно обновлены.')
     return redirect(url_for('show_post_detail', id=id))
 
+@app.route('/clear-cookies')
+def clear_cookies():
+    response = make_response("Cookies cleared!")
+    response.set_cookie('accepted_cookies', '', max_age=0)  # Очистка cookie
+    return response
 
 
 # Страница со всеми задачами
@@ -706,4 +795,4 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 if __name__ == '__main__':
-	app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000)
