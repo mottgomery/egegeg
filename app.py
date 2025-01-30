@@ -130,17 +130,26 @@ def view_thread(thread_id):
         name = request.form.get('name', 'Аноним')
         parent_id = request.form.get('parent_id')
 
+        # Получаем файл
+        file = request.files.get('file')
+        file_data, file_name = (None, None)
+
+        if file and file.filename:
+            file_data = file.read()
+            file_name = file.filename
+
         if parent_id:
-            reply = Reply(post_id=parent_id, message=message, name=name)
+            reply = Reply(post_id=parent_id, message=message, name=name, file=file_data, file_name=file_name)
             db.session.add(reply)
         else:
-            post = ThreadPost(thread_id=thread_id, message=message, name=name)
+            post = ThreadPost(thread_id=thread_id, message=message, name=name, file=file_data, file_name=file_name)
             db.session.add(post)
 
         db.session.commit()
         return redirect(url_for('view_thread', thread_id=thread_id, page=page))
 
     return render_template('thread.html', thread=thread, comments_paginated=comments_paginated)
+
 
 
 @app.route('/new_admin_thread', methods=['POST'])
@@ -191,57 +200,34 @@ def accept_cookies():
 
 
 @app.route('/vote_thread/<int:thread_id>/<action>', methods=['POST'])
+@login_required  # Требует авторизации
 def vote_thread(thread_id, action):
-    if not current_user.is_authenticated:
-        return jsonify({"error": "Вы должны быть авторизованы!"}), 403
-
-    # Получаем тред из базы данных
-    thread = Thread.query.get(thread_id)
+    thread = db.session.get(Thread, thread_id)
     if not thread:
         return jsonify({"error": "Тред не найден."}), 404
 
-    # Получаем информацию о голосах пользователя из сессии
-    user_votes = session.get('user_votes', {})
+    if 'user_votes' not in session:
+        session['user_votes'] = {}
 
-    # Проверяем, если пользователь уже проголосовал за этот тред
-    if thread_id in user_votes:
-        previous_vote = user_votes[thread_id]
+    user_votes = session['user_votes']
 
-        # Если пользователь пытается проголосовать повторно тем же способом
-        if previous_vote == action:
-            return jsonify({"error": "Вы уже проголосовали этим способом."}), 400
+    if str(thread_id) in user_votes:
+        return jsonify({"error": "Вы уже голосовали за этот тред."}), 400
 
-        # Если голос меняется (например, с "вверх" на "вниз"), обновляем количество голосов
-        if action == 'up':
-            thread.votes += 1
-        elif action == 'down':
-            thread.votes -= 1
-
-        # Отменяем предыдущий голос
-        if previous_vote == 'up':
-            thread.votes -= 1
-        elif previous_vote == 'down':
-            thread.votes += 1
-
-        # Обновляем голос в сессии
-        user_votes[thread_id] = action
-        db.session.commit()
-        session['user_votes'] = user_votes
-
+    if action == 'up':
+        thread.votes += 1
+    elif action == 'down':
+        thread.votes -= 1
     else:
-        # Если пользователь голосует впервые за этот тред
-        if action == 'up':
-            thread.votes += 1
-        elif action == 'down':
-            thread.votes -= 1
+        return jsonify({"error": "Неверное действие."}), 400
 
-        # Сохраняем новый голос в сессии
-        user_votes[thread_id] = action
-        db.session.commit()
-        session['user_votes'] = user_votes
+    user_votes[str(thread_id)] = action
+    session['user_votes'] = user_votes
+    session.modified = True
 
-    # Возвращаем обновленное количество голосов
+    db.session.commit()
     return jsonify({"votes": thread.votes})
+
 
 
 @app.route('/vote_post/<int:post_id>/<action>', methods=['POST'])
@@ -268,17 +254,23 @@ def delete_thread(thread_id):
     return redirect(url_for("forum"))
 
 
+@app.route('/download_post_file/<int:post_id>')
+def download_post_file(post_id):
+    post = ThreadPost.query.get_or_404(post_id)
 
+    if not post.file or not post.file_name:
+        abort(404)
 
-@app.route('/download/<filename>')
-def download_file(filename):
-    uploads_dir = app.config['UPLOAD_FOLDER']
-    file_path = os.path.join(uploads_dir, filename)
+    mime_type = "application/octet-stream"
+    if post.file_name.endswith(('.png', '.jpg', '.jpeg', '.gif')):
+        mime_type = "image/png"  # Можно улучшить определение MIME-типов
 
-    if not os.path.exists(file_path):
-        abort(404)  # Файл не найден
-
-    return send_from_directory(directory=uploads_dir, path=filename, as_attachment=True)
+    return send_file(
+        BytesIO(post.file),
+        mimetype=mime_type,
+        as_attachment=not post.file_name.endswith(('.png', '.jpg', '.jpeg', '.gif')),
+        download_name=post.file_name
+    )
 
 
 @app.route('/search', methods=['GET'])

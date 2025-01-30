@@ -239,6 +239,7 @@
 {% block content %}
 <div class="thread-container">
     <h1>{{ thread.title }}</h1>
+    <a href="{{ url_for('forum') }}" class="btn-custom btn-primary-custom mt-3" style="width: 225px"><-- Назад</a>
     <p class="text-muted">Создано: {{ thread.created_at | format_time_to_local }}</p>
 
     <div id="posts">
@@ -253,11 +254,13 @@
                     <p>{{ post.message }}</p>
                     {% if post.file_name %}
                         {% if post.file_name.endswith(('.png', '.jpg', '.jpeg', '.gif')) %}
-                            <img class="post-image" src="{{ url_for('download_file', post_id=post.id) }}" alt="Прикрепленное изображение">
+                            <img class="post-image" src="{{ url_for('download_post_file', post_id=post.id) }}" alt="Прикрепленное изображение">
                         {% else %}
-                            <p><a href="{{ url_for('download_file', post_id=post.id) }}" download>{{ post.file_name }}</a></p>
+                            <p><a href="{{ url_for('download_post_file', post_id=post.id) }}" download>{{ post.file_name }}</a></p>
                         {% endif %}
                     {% endif %}
+
+
                 </div>
                 <button class="new-post-button" onclick="openModal('replyModal', {{ post.id }})">Ответить</button>
                 {% if current_user.is_authenticated and current_user.role == 'admin' %}
@@ -276,7 +279,11 @@
                             <div class="post-message">
                                 <p>{{ reply.message }}</p>
                                 {% if reply.file_name %}
-                                <p><a href="{{ url_for('download_file', post_id=reply.id) }}">Прикрепленный файл: {{ reply.file_name }}</a></p>
+                                    {% if post.file_name.endswith(('.png', '.jpg', '.jpeg', '.gif')) %}
+                                        <img class="post-image" src="{{ url_for('download_post_file', post_id=post.id) }}" alt="Прикрепленное изображение">
+                                    {% else %}
+                                        <p><a href="{{ url_for('download_post_file', post_id=post.id) }}" download>{{ post.file_name }}</a></p>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </div>
